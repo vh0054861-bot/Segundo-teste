@@ -1,50 +1,18 @@
-# Segundo-testeconst express = require("express");
-const Database = require("better-sqlite3");
-
-const app = express();
-const db = new Database("database.db");
-
-app.use(express.urlencoded({ extended: true }));
-app.use(express.json());
-
-/* ================== BANCO ================== */
-db.exec(`
-CREATE TABLE IF NOT EXISTS clientes (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    nome TEXT
-);
-
-CREATE TABLE IF NOT EXISTS produtos (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    nome TEXT,
-    preco REAL,
-    estoque INTEGER
-);
-
-CREATE TABLE IF NOT EXISTS vendas (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    cliente TEXT,
-    total REAL,
-    data TEXT
-);
-`);
-
-/* ================== INTERFACE ================== */
-
-app.get("/", (req, res) => {
-res.send(`
 <!DOCTYPE html>
 <html>
 <head>
+<meta charset="UTF-8">
 <title>Sistema de Vendas</title>
 <style>
-body { font-family: Arial; margin:40px; background:#f4f4f4;}
-h1{color:#333;}
-section{background:white;padding:20px;margin-bottom:20px;border-radius:8px;}
-input,button{padding:8px;margin:5px;}
-button{background:#2c7be5;color:white;border:none;border-radius:5px;}
-table{width:100%;margin-top:10px;border-collapse:collapse;}
-td,th{border:1px solid #ddd;padding:8px;}
+body{font-family:Arial;margin:40px;background:#f4f4f4}
+h1{color:#222}
+section{background:#fff;padding:20px;margin-bottom:20px;border-radius:8px;box-shadow:0 2px 6px rgba(0,0,0,0.1)}
+input,button{padding:8px;margin:5px}
+button{background:#2c7be5;color:#fff;border:none;border-radius:5px;cursor:pointer}
+button:hover{background:#1a5ed6}
+table{width:100%;border-collapse:collapse;margin-top:10px}
+th,td{border:1px solid #ddd;padding:8px;text-align:left}
+th{background:#2c7be5;color:white}
 </style>
 </head>
 <body>
@@ -52,101 +20,80 @@ td,th{border:1px solid #ddd;padding:8px;}
 <h1>Sistema de Controle de Vendas</h1>
 
 <section>
-<h2>Cadastrar Cliente</h2>
-<form method="POST" action="/cliente">
-<input name="nome" placeholder="Nome do cliente" required/>
-<button>Cadastrar</button>
-</form>
-</section>
-
-<section>
 <h2>Cadastrar Produto</h2>
-<form method="POST" action="/produto">
-<input name="nome" placeholder="Nome do produto" required/>
-<input name="preco" type="number" step="0.01" placeholder="Preço" required/>
-<input name="estoque" type="number" placeholder="Estoque" required/>
-<button>Cadastrar</button>
-</form>
+<input id="nomeProduto" placeholder="Nome do Produto">
+<input id="precoProduto" type="number" placeholder="Preço">
+<input id="estoqueProduto" type="number" placeholder="Estoque">
+<button onclick="addProduto()">Adicionar</button>
 </section>
 
 <section>
 <h2>Registrar Venda</h2>
-<form method="POST" action="/venda">
-<input name="cliente" placeholder="Nome do cliente" required/>
-<input name="total" type="number" step="0.01" placeholder="Total da venda" required/>
-<button>Registrar</button>
-</form>
+<input id="clienteVenda" placeholder="Nome do Cliente">
+<input id="valorVenda" type="number" placeholder="Valor da Venda">
+<button onclick="addVenda()">Registrar</button>
 </section>
 
 <section>
 <h2>Produtos</h2>
-${listarProdutos()}
+<div id="listaProdutos"></div>
 </section>
 
 <section>
 <h2>Vendas</h2>
-${listarVendas()}
+<div id="listaVendas"></div>
 </section>
+
+<script>
+let produtos = JSON.parse(localStorage.getItem("produtos")) || [];
+let vendas = JSON.parse(localStorage.getItem("vendas")) || [];
+
+function salvar(){
+localStorage.setItem("produtos",JSON.stringify(produtos));
+localStorage.setItem("vendas",JSON.stringify(vendas));
+}
+
+function addProduto(){
+let nome=document.getElementById("nomeProduto").value;
+let preco=document.getElementById("precoProduto").value;
+let estoque=document.getElementById("estoqueProduto").value;
+
+if(!nome || !preco || !estoque) return alert("Preencha tudo");
+
+produtos.push({id:Date.now(),nome,preco,estoque});
+salvar();
+render();
+}
+
+function addVenda(){
+let cliente=document.getElementById("clienteVenda").value;
+let valor=document.getElementById("valorVenda").value;
+
+if(!cliente || !valor) return alert("Preencha tudo");
+
+vendas.push({id:Date.now(),cliente,valor,data:new Date().toLocaleString()});
+salvar();
+render();
+}
+
+function render(){
+let htmlP="<table><tr><th>Nome</th><th>Preço</th><th>Estoque</th></tr>";
+produtos.forEach(p=>{
+htmlP+=`<tr><td>${p.nome}</td><td>R$ ${p.preco}</td><td>${p.estoque}</td></tr>`;
+});
+htmlP+="</table>";
+document.getElementById("listaProdutos").innerHTML=htmlP;
+
+let htmlV="<table><tr><th>Cliente</th><th>Valor</th><th>Data</th></tr>";
+vendas.forEach(v=>{
+htmlV+=`<tr><td>${v.cliente}</td><td>R$ ${v.valor}</td><td>${v.data}</td></tr>`;
+});
+htmlV+="</table>";
+document.getElementById("listaVendas").innerHTML=htmlV;
+}
+
+render();
+</script>
 
 </body>
 </html>
-`);
-});
-
-/* ================== ROTAS ================== */
-
-app.post("/cliente", (req,res)=>{
-    db.prepare("INSERT INTO clientes (nome) VALUES (?)")
-    .run(req.body.nome);
-    res.redirect("/");
-});
-
-app.post("/produto", (req,res)=>{
-    db.prepare("INSERT INTO produtos (nome,preco,estoque) VALUES (?,?,?)")
-    .run(req.body.nome, req.body.preco, req.body.estoque);
-    res.redirect("/");
-});
-
-app.post("/venda", (req,res)=>{
-    db.prepare("INSERT INTO vendas (cliente,total,data) VALUES (?,?,datetime('now'))")
-    .run(req.body.cliente, req.body.total);
-    res.redirect("/");
-});
-
-/* ================== FUNÇÕES ================== */
-
-function listarProdutos(){
-    const produtos = db.prepare("SELECT * FROM produtos").all();
-    let html = "<table><tr><th>ID</th><th>Nome</th><th>Preço</th><th>Estoque</th></tr>";
-    produtos.forEach(p=>{
-        html += `<tr>
-        <td>${p.id}</td>
-        <td>${p.nome}</td>
-        <td>R$ ${p.preco}</td>
-        <td>${p.estoque}</td>
-        </tr>`;
-    });
-    html += "</table>";
-    return html;
-}
-
-function listarVendas(){
-    const vendas = db.prepare("SELECT * FROM vendas").all();
-    let html = "<table><tr><th>ID</th><th>Cliente</th><th>Total</th><th>Data</th></tr>";
-    vendas.forEach(v=>{
-        html += `<tr>
-        <td>${v.id}</td>
-        <td>${v.cliente}</td>
-        <td>R$ ${v.total}</td>
-        <td>${v.data}</td>
-        </tr>`;
-    });
-    html += "</table>";
-    return html;
-}
-
-/* ================== SERVIDOR ================== */
-
-app.listen(3000, ()=>{
-    console.log("Rodando em http://localhost:3000");
-});
